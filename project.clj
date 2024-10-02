@@ -9,7 +9,8 @@
                  [ring/ring-json "0.5.1"]
                  [ring/ring-mock "0.4.0"]
                  [compojure "1.7.1"]
-                 [cheshire "5.13.0"]]
+                 [cheshire "5.13.0"]
+                 [org.slf4j/slf4j-simple "2.0.16"]]
   :main ^:skip-aot rinha-v1.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all
