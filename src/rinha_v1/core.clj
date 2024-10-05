@@ -15,18 +15,29 @@
   (let [db-mock (atom [])]
     @db-mock))
 
-(defn valid-body?
+(defn invalid-request?
   [body]
   ;; consultar no db o apelido pra ver se ja existe
-  (not (some #(= (:apelido %) (:apelido body)) (db))))
+  (or (some #(= (:apelido %) (:apelido body)) (db))
+      (nil? (:apelido body))
+      (nil? (:nome body))))
+
+(defn syntactically-invalid-requests?
+  [body]
+  (or (not (string? (:nome body)))
+      (some #(not (string? %)) (:stack body))))
 
 (defn create-people
   [request]
   (let [body (:body request)]
-    (if (valid-body? body)
+    (cond
+      (invalid-request? body)
+      {:status 422}
+      (syntactically-invalid-requests? body)
+      {:status 400}
+      :else
       {:status 201
-       :headers {"Location" (str "/pessoas/" (uuid))}}
-      {:status 422})))
+       :headers {"Location" (str "/pessoas/" (uuid))}})))
 
 (defroutes app-routes
   (POST "/pessoas" [] create-people)
@@ -41,7 +52,5 @@
       (wrap-json-response)))
 
 (defn -main
-  "I don't do a whole lot ... yet."
   [& args]
-  (println "Hello, World!")
   (run-jetty app {:port 3000 :join? true}))

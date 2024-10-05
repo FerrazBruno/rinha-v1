@@ -48,24 +48,22 @@
                                 (mock/json-body (data "jose" "José Roberto" "2000-10-01" ["C#" "Node" "Oracle"]))))]
           (is (= 422 (:status response))))))
 
-    #_(testing "Requisição inválida - ':apelido' não pode ser nulo"
+    (testing "Requisição inválida - ':apelido' não pode ser nulo"
       (let [response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data nil "José Roberto" "2000-10-01" ["C#" "Node" "Oracle"]))))]
         (is (= 422 (:status response)))))
 
-    #_(testing "Requisição inválida - ':nome' não pode ser nulo"
+    (testing "Requisição inválida - ':nome' não pode ser nulo"
       (let [response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data "jose" nil "2000-10-01" ["C#" "Node" "Oracle"]))))]
-        (is (= 422 (:status response)))
-        (is (= {"Location" "/pessoas/23b56302-f05b-42e1-8edd-48077e78a05f"}
-               (:headers response)))))
+        (is (= 422 (:status response)))))
 
-    #_(testing "Requisição inválida - ':nome' é obrigatório ser uma string"
+    (testing "Requisição inválida - ':nome' é obrigatório ser uma string"
       (let [response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data "jose" 1 "2000-10-01" ["C#" "Node" "Oracle"]))))]
         (is (= 400 (:status response)))))
 
-    #_(testing "Requisição inválida - ':stack' é obrigatório conter apenas strings"
+    (testing "Requisição inválida - ':stack' é obrigatório conter apenas strings"
       (let [response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data "jose" 1 "2000-10-01" ["C#" 1]))))]
         (is (= 400 (:status response))))))
