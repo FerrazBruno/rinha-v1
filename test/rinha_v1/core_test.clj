@@ -2,7 +2,10 @@
   (:require [clojure.test :refer :all]
             [rinha-v1.core :refer :all]
             [ring.mock.request :as mock]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [rinha-v1.db :as db]))
+
+(json/generate-string {:foo "bar" :baz 5})
 
 (use-fixtures :once (fn [f] (with-redefs [uuid (fn [] "23b56302-f05b-42e1-8edd-48077e78a05f")] (f))))
 
@@ -36,47 +39,57 @@
                (:headers response)))))
 
     (testing "Requisição Válida - stack = nil"
-      (let [response (app (-> (mock/request :post "/pessoas")
+      (let [_ (reset! db/db-mock {})
+            response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data "jose" "José Roberto" "2000-10-01" nil))))]
         (is (= 201 (:status response)))
         (is (= {"Location" "/pessoas/23b56302-f05b-42e1-8edd-48077e78a05f"}
                (:headers response)))))
 
     (testing "Requisição inválida - 'jose' já foi criado em outra requisição"
-      (with-redefs [db (fn [] [{:apelido "jose"}])]
-        (let [response (app (-> (mock/request :post "/pessoas")
-                                (mock/json-body (data "jose" "José Roberto" "2000-10-01" ["C#" "Node" "Oracle"]))))]
-          (is (= 422 (:status response))))))
+      (let [_ (reset! db/db-mock {})
+            _ (app (app (-> (mock/request :post "/pessoas")
+                            (mock/json-body (data "jose" "José Roberto" "2000-10-01" ["C#" "Node" "Oracle"])))))
+            response (app (-> (mock/request :post "/pessoas")
+                              (mock/json-body (data "jose" "José Roberto" "2000-10-01" ["C#" "Node" "Oracle"]))))]
+        (is (= 422 (:status response)))))
 
     (testing "Requisição inválida - ':apelido' não pode ser nulo"
-      (let [response (app (-> (mock/request :post "/pessoas")
+      (let [_ (reset! db/db-mock {})
+            response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data nil "José Roberto" "2000-10-01" ["C#" "Node" "Oracle"]))))]
         (is (= 422 (:status response)))))
 
     (testing "Requisição inválida - ':nome' não pode ser nulo"
-      (let [response (app (-> (mock/request :post "/pessoas")
+      (let [_ (reset! db/db-mock {})
+            response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data "jose" nil "2000-10-01" ["C#" "Node" "Oracle"]))))]
         (is (= 422 (:status response)))))
 
     (testing "Requisição inválida - ':nome' é obrigatório ser uma string"
-      (let [response (app (-> (mock/request :post "/pessoas")
+      (let [_ (reset! db/db-mock {})
+            response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data "jose" 1 "2000-10-01" ["C#" "Node" "Oracle"]))))]
         (is (= 400 (:status response)))))
 
     (testing "Requisição inválida - ':stack' é obrigatório conter apenas strings"
-      (let [response (app (-> (mock/request :post "/pessoas")
+      (let [_ (reset! db/db-mock {})
+            response (app (-> (mock/request :post "/pessoas")
                               (mock/json-body (data "jose" 1 "2000-10-01" ["C#" 1]))))]
         (is (= 400 (:status response))))))
 
-  #_(testing "GET /pessoas/:id"
-    (let [response (app (mock/request :get "/pessoas/23b56302-f05b-42e1-8edd-48077e78a05f"))]
+  (testing "GET /pessoas/:id"
+    (let [_ (reset! db/db-mock {})
+          _post (app (app (-> (mock/request :post "/pessoas")
+                              (mock/json-body (data "jose" "José Roberto" "2000-10-01" ["C#" "Node" "Oracle"])))))
+          response (app (mock/request :get "/pessoas/23b56302-f05b-42e1-8edd-48077e78a05f"))]
       (is (= 200 (:status response)))
       (is (= {:id "23b56302-f05b-42e1-8edd-48077e78a05f"
               :apelido "jose"
               :nome "José Roberto"
               :nascimento "2000-10-01"
               :stack ["C#" "Node" "Oracle"]}
-             (:body response)))))
+             (json/parse-string (:body response) true)))))
 
   #_(testing "GET /pessoas?t=[:termo da busca]"
     (testing "t=node"

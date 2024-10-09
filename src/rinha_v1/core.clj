@@ -3,22 +3,19 @@
             [compojure.route :as route]
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
-            [ring.middleware.params :refer [wrap-params]])
+            [ring.middleware.params :refer [wrap-params]]
+            [rinha-v1.db :as db]
+            [clojure.pprint :as pp])
   (:gen-class))
 
 (defn uuid
   []
   (java.util.UUID/randomUUID))
 
-(defn db
-  []
-  (let [db-mock (atom [])]
-    @db-mock))
-
 (defn invalid-request?
   [body]
   ;; consultar no db o apelido pra ver se ja existe
-  (or (some #(= (:apelido %) (:apelido body)) (db))
+  (or (some #(= (:apelido body) %) (map :apelido (vals @db/db-mock)))
       (nil? (:apelido body))
       (nil? (:nome body))))
 
@@ -36,11 +33,23 @@
       (syntactically-invalid-requests? body)
       {:status 400}
       :else
-      {:status 201
-       :headers {"Location" (str "/pessoas/" (uuid))}})))
+      (let [id (uuid)]
+        (swap! db/db-mock assoc id (assoc body :id id))
+        {:status 201
+         :headers {"Location" (str "/pessoas/" id)}}))))
+
+(defn get-people
+  [request]
+  (let [params (:route-params request)
+        id (:id params)
+        result (get @db/db-mock id)]
+    {:status 200
+     :headers {"Content-Type" "application/json"}
+     :body result}))
 
 (defroutes app-routes
   (POST "/pessoas" [] create-people)
+  (GET "/pessoas/:id" [] get-people)
   (route/not-found {:status 404
                     :headers {"Content-Type" "application/json"}
                     :body {:error "Not Found"}}))
