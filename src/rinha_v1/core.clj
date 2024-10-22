@@ -1,16 +1,17 @@
 (ns rinha-v1.core
+  (:gen-class)
   (:require [compojure.core :refer [defroutes GET POST]]
             [compojure.route :as route]
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
             [ring.middleware.params :refer [wrap-params]]
             [rinha-v1.db :as db]
-            [clojure.pprint :as pp])
-  (:gen-class))
+            [cheshire.core :as che]
+            [clojure.string :as str]))
 
 (defn uuid
   []
-  (java.util.UUID/randomUUID))
+  (str (java.util.UUID/randomUUID)))
 
 (defn invalid-request?
   [body]
@@ -47,9 +48,21 @@
      :headers {"Content-Type" "application/json"}
      :body result}))
 
+(defn get-by-termo
+  [request]
+  (let [t (get (:query-params request) "t")
+        results (vals @db/db-mock)]
+    (che/generate-string
+     (filterv
+      (fn [r]
+        (->> (:stack r)
+             (map #(str/lower-case %))
+             (some #(= (str/lower-case t) %)))) results))))
+
 (defroutes app-routes
   (POST "/pessoas" [] create-people)
   (GET "/pessoas/:id" [] get-people)
+  (GET "/pessoas" [] get-by-termo)
   (route/not-found {:status 404
                     :headers {"Content-Type" "application/json"}
                     :body {:error "Not Found"}}))
