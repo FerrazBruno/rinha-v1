@@ -5,9 +5,11 @@
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
             [ring.middleware.params :refer [wrap-params]]
-            [rinha-v1.db :as db]
             [cheshire.core :as che]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.pprint :as pp]))
+
+(def db-mock (atom {}))
 
 (defn uuid
   []
@@ -16,7 +18,7 @@
 (defn invalid-request?
   [body]
   ;; consultar no db o apelido pra ver se ja existe
-  (or (some #(= (:apelido body) %) (map :apelido (vals @db/db-mock)))
+  (or (some #(= (:apelido body) %) (map :apelido (vals @db-mock)))
       (nil? (:apelido body))
       (nil? (:nome body))))
 
@@ -35,7 +37,7 @@
       {:status 400}
       :else
       (let [id (uuid)]
-        (swap! db/db-mock assoc id (assoc body :id id))
+        (swap! db-mock assoc id (assoc body :id id))
         {:status 201
          :headers {"Location" (str "/pessoas/" id)}}))))
 
@@ -43,21 +45,24 @@
   [request]
   (let [params (:route-params request)
         id (:id params)
-        result (get @db/db-mock id)]
+        result (get @db-mock id)]
     {:status 200
      :headers {"Content-Type" "application/json"}
      :body result}))
 
 (defn get-by-termo
   [request]
-  (let [t (get (:query-params request) "t")
-        results (vals @db/db-mock)]
+  (let [t (str/lower-case (get (:query-params request) "t"))
+        results (vals @db-mock)]
     (che/generate-string
      (filterv
       (fn [r]
-        (->> (:stack r)
-             (map #(str/lower-case %))
-             (some #(= (str/lower-case t) %)))) results))))
+        (or (= (str/lower-case (:apelido r)) t)
+            (clojure.string/includes? (str/lower-case (:nome r)) t)
+            (->> (:stack r)
+                 (map #(str/lower-case %))
+                 (some #(= t %)))))
+      results))))
 
 (defroutes app-routes
   (POST "/pessoas" [] create-people)
