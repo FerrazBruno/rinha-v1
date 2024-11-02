@@ -135,14 +135,20 @@
         (is (= 200 (:status response)))
         (is (= [] (json/parse-string (:body response))))))
 
-    #_(testing "t="
-      (let [response (app (mock/request :get "/pessoas?t=node"))]
-        (is (= 400 (:status response))))))
+    (testing "t="
+      (let [response (app (mock/request :get "/pessoas?t="))]
+        (is (= 400 (:status response)))
+        (is (= "Bad Request" (-> (:body response) (json/parse-string true) (:error)))))))
 
-  #_(testing "GET /contagem-pessoas"
-    (let [response (app (mock/request :get "/contagem-pessoas"))]
+  (testing "GET /contagem-pessoas"
+    (let [_ (reset! db-mock {})
+          _post1 (app (-> (mock/request :post "/pessoas")
+                          (mock/json-body (data "josé" "José Roberto" "2000-10-01" ["C#" "Node" "Oracle"]))))
+          _post2 (app (-> (mock/request :post "/pessoas")
+                          (mock/json-body (data "ana" "Ana Barbosa" "1985-09-23" ["Node" "Postgres"]))))
+          response (app (mock/request :get "/contagem-pessoas"))]
       (is (= 200 (:status response)))
-      (is (= "2" (:body response))))))
+      (is (= "2" (-> (:body response) (json/parse-string true) (:count)))))))
 
 #_(deftest valid-username?-test
   (testing "Apelido obrigaório"

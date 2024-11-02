@@ -54,20 +54,31 @@
   [request]
   (let [t (str/lower-case (get (:query-params request) "t"))
         results (vals @db-mock)]
-    (che/generate-string
-     (filterv
-      (fn [r]
-        (or (= (str/lower-case (:apelido r)) t)
-            (clojure.string/includes? (str/lower-case (:nome r)) t)
-            (->> (:stack r)
-                 (map #(str/lower-case %))
-                 (some #(= t %)))))
-      results))))
+    (if (empty? t)
+      {:status 400
+       :headers {"Content-Type" "application/json"}
+       :body {:error "Bad Request"}}
+      (che/generate-string
+       (filterv
+        (fn [r]
+          (or (= (str/lower-case (:apelido r)) t)
+              (clojure.string/includes? (str/lower-case (:nome r)) t)
+              (->> (:stack r)
+                   (map #(str/lower-case %))
+                   (some #(= t %)))))
+        results)))))
+
+(defn count-people
+  [_]
+  {:status 200
+   :headers {"Content-Type" "application/json"}
+   :body {:count (str (count @db-mock))}})
 
 (defroutes app-routes
   (POST "/pessoas" [] create-people)
   (GET "/pessoas/:id" [] get-people)
   (GET "/pessoas" [] get-by-termo)
+  (GET "/contagem-pessoas" [] count-people)
   (route/not-found {:status 404
                     :headers {"Content-Type" "application/json"}
                     :body {:error "Not Found"}}))
