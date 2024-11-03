@@ -53,6 +53,17 @@
      :headers {"Content-Type" "application/json"}
      :body result}))
 
+(defn filter-by-term [term results]
+  (che/generate-string
+   (filterv
+    (fn [r]
+      (or (= (str/lower-case (:apelido r)) term)
+          (str/includes? (str/lower-case (:nome r)) term)
+          (->> (:stack r)
+               (map #(str/lower-case %))
+               (some #(= term %)))))
+    results)))
+
 (defn get-by-termo [request]
   (let [t (str/lower-case (get (:query-params request) "t"))
         results (vals @db-mock)]
@@ -60,15 +71,9 @@
       {:status 400
        :headers {"Content-Type" "application/json"}
        :body {:error "Bad Request"}}
-      (che/generate-string
-       (filterv
-        (fn [r]
-          (or (= (str/lower-case (:apelido r)) t)
-              (clojure.string/includes? (str/lower-case (:nome r)) t)
-              (->> (:stack r)
-                   (map #(str/lower-case %))
-                   (some #(= t %)))))
-        results)))))
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body (filter-by-term t results)})))
 
 (defn count-people [_]
   {:status 200
