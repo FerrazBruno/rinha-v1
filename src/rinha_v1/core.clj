@@ -7,28 +7,32 @@
             [ring.middleware.params :refer [wrap-params]]
             [cheshire.core :as che]
             [clojure.string :as str]
-            [clojure.pprint :as pp]))
+            [clojure.spec.alpha :as s]))
 
+;; SPEC post-request
+(s/def ::apelido (s/and string? #(<= (count %) 32)))
+(s/def ::nome (s/and string? #(<= (count %) 100)))
+(def date-regex #"^\d{4}-\d{2}-\d{2}$")
+(s/def ::nascimento (s/and string? #(re-matches date-regex %)))
+(s/def ::stack (s/nilable (s/coll-of (s/and string? #(<= (count %) 32)) :kind vector?)))
+(s/def ::body (s/keys :req-un [::apelido ::nome ::nascimento ::stack]))
+
+;; MOCK DB
 (def db-mock (atom {}))
 
-(defn uuid
-  []
+(defn uuid []
   (str (java.util.UUID/randomUUID)))
 
-(defn invalid-request?
-  [body]
-  ;; consultar no db o apelido pra ver se ja existe
+(defn invalid-request? [body]
   (or (some #(= (:apelido body) %) (map :apelido (vals @db-mock)))
       (nil? (:apelido body))
       (nil? (:nome body))))
 
 (defn syntactically-invalid-requests?
   [body]
-  (or (not (string? (:nome body)))
-      (some #(not (string? %)) (:stack body))))
+  (not (s/valid? ::body body)))
 
-(defn create-people
-  [request]
+(defn create-people [request]
   (let [body (:body request)]
     (cond
       (invalid-request? body)
@@ -41,8 +45,7 @@
         {:status 201
          :headers {"Location" (str "/pessoas/" id)}}))))
 
-(defn get-people
-  [request]
+(defn get-people [request]
   (let [params (:route-params request)
         id (:id params)
         result (get @db-mock id)]
@@ -50,8 +53,7 @@
      :headers {"Content-Type" "application/json"}
      :body result}))
 
-(defn get-by-termo
-  [request]
+(defn get-by-termo [request]
   (let [t (str/lower-case (get (:query-params request) "t"))
         results (vals @db-mock)]
     (if (empty? t)
@@ -68,8 +70,7 @@
                    (some #(= t %)))))
         results)))))
 
-(defn count-people
-  [_]
+(defn count-people [_]
   {:status 200
    :headers {"Content-Type" "application/json"}
    :body {:count (str (count @db-mock))}})
@@ -89,6 +90,5 @@
       (wrap-json-body {:keywords? true})
       (wrap-json-response)))
 
-(defn -main
-  [& args]
+(defn -main [& _args]
   (run-jetty app {:port 3000 :join? true}))

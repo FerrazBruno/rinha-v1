@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [rinha-v1.core :refer :all]
             [ring.mock.request :as mock]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [clojure.spec.alpha :as s]))
 
 (defn data
   [apelido nome nascimento stack]
@@ -150,60 +151,62 @@
       (is (= 200 (:status response)))
       (is (= "2" (-> (:body response) (json/parse-string true) (:count)))))))
 
-#_(deftest valid-username?-test
-  (testing "Apelido obrigaório"
-    (is (= true (valid-username? "josé"))))
+(deftest spec-test
+  (testing "Spec :apelido"
+    (is (true? (s/valid? :rinha-v1.core/apelido "frodo")))
+    (is (false? (s/valid? :rinha-v1.core/apelido nil)))
+    (is (false? (s/valid? :rinha-v1.core/apelido 1)))
+    (is (false? (s/valid? :rinha-v1.core/apelido "pneumoultramicroscopicossilicovulcanoconiótico"))))
 
-  (testing "Apelido único"
-    (is (= true (valid-username? "josé"))))
+  (testing "Spec :nome"
+    (is (true? (s/valid? :rinha-v1.core/nome "Frodo Bolseiro")))
+    (is (false? (s/valid? :rinha-v1.core/nome nil)))
+    (is (false? (s/valid? :rinha-v1.core/nome "pneumoultramicroscopicossilicovulcanoconióticopneumoultramicroscopicossilicovulcanoconióticopneumoult"))))
 
-  (testing "Apelido é uma string até 32 caracteres"
-    (is (= true (valid-username? "josé"))))
+  (testing "Spec :nascimento"
+    (is (true? (s/valid? :rinha-v1.core/nascimento "1987-09-13")))
+    (is (false? (s/valid? :rinha-v1.core/nascimento nil)))
+    (is (false? (s/valid? :rinha-v1.core/nascimento 1)))
+    (is (false? (s/valid? :rinha-v1.core/nascimento "09-13-1987")))
+    (is (false? (s/valid? :rinha-v1.core/nascimento "1987-09-DD")))
+    (is (false? (s/valid? :rinha-v1.core/nascimento "1987-MM-13")))
+    (is (false? (s/valid? :rinha-v1.core/nascimento "AAAA-09-13")))
+    (is (false? (s/valid? :rinha-v1.core/nascimento "19879-09-13")))
+    (is (false? (s/valid? :rinha-v1.core/nascimento "1987-091-13")))
+    (is (false? (s/valid? :rinha-v1.core/nascimento "1987-09-134"))))
 
-  (testing "Apelido nulo"
-    (is (= false (valid-username? "frodo"))))
+  (testing "Spec :stack"
+    (is (true? (s/valid? :rinha-v1.core/stack ["Clojure" "ClojureScript"])))
+    (is (true? (s/valid? :rinha-v1.core/stack nil)))
+    (is (false? (s/valid? :rinha-v1.core/stack ["Clojure" "pneumoultramicroscopicossilicovulcanoconiótico"])))
+    (is (false? (s/valid? :rinha-v1.core/stack ["Clojure" 123])))
+    (is (false? (s/valid? :rinha-v1.core/stack #{"Clojure" "ClojureScript"})))
+    (is (false? (s/valid? :rinha-v1.core/stack "Clojure")))
+    (is (false? (s/valid? :rinha-v1.core/stack 1234))))
 
-  (testing "Apelido não é nulo"
-    (is (= false (valid-username? "frodo"))))
-
-  (testing "Apelido com uma string maior que 32 caracteres"
-    (is (= false (valid-username? "pneumoultramicroscopicossilicovulcanoconiótico")))))
-
-#_(deftest valid-name?-test
-  (testing "Nome obrigatório"
-    (is (= true (valid-name? "José Roberto"))))
-
-  (testing "Nome é uma string até 100 caracteres."
-    (is (= true (valid-name? "José Roberto"))))
-
-  (testing "Nome nulo"
-    (is (= false (valid-name? nil))))
-
-  (testing "Nome inválido"
-    (is (= false (valid-name? 1))))
-
-  (testing "Nome é uma string com mais de 100 caracteres."
-    (is (= true (valid-name? "pneumoultramicroscopicossilicovulcanoconióticopneumoultramicroscopicossilicovulcanoconióticopneumoult")))))
-
-#_(deftest valid-birth-date?-test
-  (testing "Nascimento obrigatório no formato de AAAA-MM-DD e string"
-    (is (= true (valid-birth-date? "2000-10-01"))))
-
-  (testing "Nascimento nulo"
-    (is (= false (valid-birth-date? nil))))
-
-  (testing "Nascimento no formato incorreto"
-    (is (= false (valid-birth-date? "01-10-2000")))))
-
-#_(deftest valid-stack?-test
-  (testing "Stack nulo"
-    (is (= true (valid-stack? nil))))
-
-  (testing "Vetor de strings até 32 caracteres"
-    (is (= true (valid-stack? ["C#" "Node" "Oracle"]))))
-
-  (testing "Vetor com elemento inválido - inteiro"
-    (is (= false (valid-stack? ["C#" 1]))))
-
-  (testing "Vetor com elemento inválido - string > 32 caracteres"
-    (is (= false (valid-stack? ["C#" "pneumoultramicroscopicossilicovulcanoconiótico"])))))
+  (testing "Spec body"
+    (is (true? (s/valid? :rinha-v1.core/body
+                         {:apelido "neo"
+                          :nome "Thomas A. Anderson"
+                          :nascimento "1962-03-11"
+                          :stack ["c#" "javascript" "MySQL"]})))
+    (is (false? (s/valid? :rinha-v1.core/body
+                          {:apelido nil
+                           :nome "Thomas A. Anderson"
+                           :nascimento "1962-03-11"
+                           :stack ["c#" "javascript" "MySQL"]})))
+    (is (false? (s/valid? :rinha-v1.core/body
+                          {:apelido "neo"
+                           :nome nil
+                           :nascimento "1962-03-11"
+                           :stack ["c#" "javascript" "MySQL"]})))
+    (is (false? (s/valid? :rinha-v1.core/body
+                          {:apelido "neo"
+                           :nome "Thomas A. Anderson"
+                           :nascimento nil
+                           :stack ["c#" "javascript" "MySQL"]})))
+    (is (false? (s/valid? :rinha-v1.core/body
+                          {:apelido "neo"
+                           :nome "Thomas A. Anderson"
+                           :nascimento "1962-03-11"
+                           :stack ["c#" "javascript" 4321]})))))
